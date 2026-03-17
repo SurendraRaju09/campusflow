@@ -15,6 +15,13 @@ type Message = {
   content: string;
 };
 
+type AiPlanResponse = {
+  plan?: unknown;
+  result?: unknown;
+  text?: unknown;
+  message?: unknown;
+};
+
 const suggestedPrompts = [
   "Plan my study schedule for this week",
   "Show upcoming assignments for my courses",
@@ -39,18 +46,43 @@ export default function AssistantPage() {
     if (!text) return;
 
     const nextId = messages.length ? messages[messages.length - 1].id + 1 : 1;
-    const updated: Message[] = [
-      ...messages,
-      { id: nextId, role: "user", content: text },
-      {
-        id: nextId + 1,
-        role: "assistant",
-        content:
-          "Here’s a mock AI response. In a real app, this would come from your backend or an LLM API. For now, imagine I’ve generated a structured plan tailored to your current classes and deadlines.",
-      },
-    ];
-    setMessages(updated);
+    setMessages((prev) => [...prev, { id: nextId, role: "user", content: text }]);
     setInput("");
+
+    async function fetchPlan() {
+      try {
+        const res = await fetch("http://127.0.0.1:8000/api/ai/plan/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: text }),
+        });
+        if (!res.ok) throw new Error(`AI request failed (${res.status})`);
+        const data = (await res.json()) as AiPlanResponse;
+        const content =
+          data?.plan ??
+          data?.result ??
+          data?.text ??
+          data?.message ??
+          "AI plan received.";
+
+        setMessages((prev) => [
+          ...prev,
+          { id: nextId + 1, role: "assistant", content: String(content) },
+        ]);
+      } catch {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: nextId + 1,
+            role: "assistant",
+            content:
+              "I couldn’t reach the AI API (demo-safe fallback). Make sure your backend is running at 127.0.0.1:8000.",
+          },
+        ]);
+      }
+    }
+
+    void fetchPlan();
   }
 
   return (

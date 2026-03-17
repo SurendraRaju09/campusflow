@@ -18,16 +18,17 @@ export default function FocusPage() {
   useEffect(() => {
     if (!running) return;
     const id = setInterval(() => {
-      setSecondsLeft((prev) => (prev > 0 ? prev - 1 : 0));
+      setSecondsLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(id);
+          setRunning(false);
+          return 0;
+        }
+        return prev - 1;
+      });
     }, 1000);
     return () => clearInterval(id);
   }, [running]);
-
-  useEffect(() => {
-    if (secondsLeft === 0) {
-      setRunning(false);
-    }
-  }, [secondsLeft]);
 
   const minutes = useMemo(() => Math.floor(secondsLeft / 60), [secondsLeft]);
   const seconds = useMemo(() => secondsLeft % 60, [secondsLeft]);

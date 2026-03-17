@@ -1,7 +1,19 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
 import { Sidebar } from "@/components/layout/sidebar";
 import { TopNav } from "@/components/layout/top-nav";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+type Stats = {
+  pending_tasks: number;
+  completed_tasks: number;
+  productivity_score: number;
+};
+
+const API_BASE = "http://127.0.0.1:8000/api";
 
 const todaySchedule = [
   { time: "09:00", title: "Data Structures", type: "Classroom", location: "Block A - 203" },
@@ -17,6 +29,22 @@ const aiSuggestions = [
 ];
 
 export default function DashboardPage() {
+  const [stats, setStats] = useState<Stats | null>(null);
+
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const res = await fetch(`${API_BASE}/stats/`, { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as Stats;
+        setStats(data);
+      } catch {
+        // Keep dashboard stable for demo even if API is down.
+      }
+    }
+    void fetchStats();
+  }, []);
+
   return (
     <div className="flex min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 text-foreground dark:from-slate-950 dark:to-slate-900 lg:pl-64">
       <Sidebar />
@@ -44,7 +72,9 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-end gap-4">
-                  <span className="text-4xl font-semibold leading-none">82</span>
+                  <span className="text-4xl font-semibold leading-none">
+                    {stats?.productivity_score ?? 82}
+                  </span>
                   <span className="mb-1 text-sm text-indigo-100">/ 100</span>
                 </div>
                 <p className="mt-3 text-xs text-indigo-100/90">
@@ -55,15 +85,17 @@ export default function DashboardPage() {
 
             <Card className="shadow-sm">
               <CardHeader className="pb-3">
-                <CardTitle>Tasks Due Today</CardTitle>
+                <CardTitle>Completed Tasks</CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-2">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-semibold">4</span>
+                  <span className="text-3xl font-semibold">
+                    {stats?.completed_tasks ?? 0}
+                  </span>
                   <span className="text-xs text-muted-foreground">tasks</span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  2 high-priority, 1 medium, 1 low.
+                  Completed so far this week
                 </p>
               </CardContent>
             </Card>
@@ -74,7 +106,9 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent className="flex flex-col gap-2">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-semibold">5</span>
+                  <span className="text-3xl font-semibold">
+                    {stats?.pending_tasks ?? 5}
+                  </span>
                   <span className="text-xs text-muted-foreground">tasks</span>
                 </div>
                 <p className="text-xs text-muted-foreground">

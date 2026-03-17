@@ -19,6 +19,16 @@ import { TopNav } from "@/components/layout/top-nav";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+const weeklyStudy = [
+  { day: "Mon", hours: 3.5 },
+  { day: "Tue", hours: 4.0 },
+  { day: "Wed", hours: 5.2 },
+  { day: "Thu", hours: 2.8 },
+  { day: "Fri", hours: 4.7 },
+  { day: "Sat", hours: 6.1 },
+  { day: "Sun", hours: 3.0 },
+];
+
 const tasksCompleted = [
   { day: "Mon", completed: 5 },
   { day: "Tue", completed: 7 },
@@ -55,7 +65,7 @@ export default function AnalyticsPage() {
               <CardHeader className="flex flex-row items-center justify-between pb-3">
                 <CardTitle className="flex items-center gap-2 text-sm">
                   <Activity className="h-4 w-4 text-indigo-500" />
-                  Weekly Tasks Completed
+                  Weekly study hours
                 </CardTitle>
                 <Badge variant="outline" className="text-[11px]">
                   Last 7 days
@@ -63,19 +73,19 @@ export default function AnalyticsPage() {
               </CardHeader>
               <CardContent className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={tasksCompleted}>
+                  <LineChart data={weeklyStudy}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="day" tickLine={false} />
-                    <YAxis tickLine={false} axisLine={false} />
-                    <Tooltip
-                      formatter={(value) =>
-                        value === undefined ? "" : `${value} tasks`
-                      }
+                    <YAxis
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(v) => `${v}h`}
                     />
+                    <Tooltip formatter={(v: number) => `${v} hours`} />
                     <Legend />
                     <Line
                       type="monotone"
-                      dataKey="completed"
+                      dataKey="hours"
                       stroke="#4f46e5"
                       strokeWidth={2}
                       dot={{ r: 3 }}

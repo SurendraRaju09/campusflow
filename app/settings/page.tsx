@@ -1,7 +1,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { Mail, MoonStar, Phone, User, CalendarPlus } from "lucide-react";
+import { Mail, MoonStar, User, CalendarPlus } from "lucide-react";
 
 import { Sidebar } from "@/components/layout/sidebar";
 import { TopNav } from "@/components/layout/top-nav";

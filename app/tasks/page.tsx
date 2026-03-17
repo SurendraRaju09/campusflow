@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Circle, Filter, Plus } from "lucide-react";
 
 import { Sidebar } from "@/components/layout/sidebar";
@@ -14,78 +14,87 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 type Task = {
   id: number;
   title: string;
-  course: string;
-  due: string;
-  status: "pending" | "completed";
-  priority: "low" | "medium" | "high";
+  completed: boolean;
+  course?: string;
+  due?: string;
+  priority?: "low" | "medium" | "high";
 };
 
-const mockTasks: Task[] = [
-  {
-    id: 1,
-    title: "Finish linked list assignment",
-    course: "Data Structures",
-    due: "Today · 8:00 PM",
-    status: "pending",
-    priority: "high",
-  },
-  {
-    id: 2,
-    title: "Prepare slides for AI lab",
-    course: "Artificial Intelligence",
-    due: "Tomorrow · 10:00 AM",
-    status: "pending",
-    priority: "medium",
-  },
-  {
-    id: 3,
-    title: "Revise OS deadlock chapter",
-    course: "Operating Systems",
-    due: "Wed · 6:00 PM",
-    status: "completed",
-    priority: "low",
-  },
-];
+type FilterMode = "all" | "pending" | "completed";
+
+const API_BASE = "http://127.0.0.1:8000/api";
 
 export default function TasksPage() {
-  const [tasks, setTasks] = useState<Task[]>(mockTasks);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [newTask, setNewTask] = useState("");
-  const [filter, setFilter] = useState<"all" | "pending" | "completed">("all");
+  const [filter, setFilter] = useState<FilterMode>("all");
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     if (filter === "all") return tasks;
-    return tasks.filter((task) => task.status === filter);
+    return tasks.filter((task) =>
+      filter === "completed" ? task.completed : !task.completed,
+    );
   }, [tasks, filter]);
 
-  function handleAdd() {
+  const fetchTasks = useCallback(async () => {
+    try {
+      setError(null);
+      const res = await fetch(`${API_BASE}/tasks/`, { cache: "no-store" });
+      if (!res.ok) throw new Error(`Tasks fetch failed (${res.status})`);
+      const data = (await res.json()) as unknown;
+      if (!Array.isArray(data)) throw new Error("Invalid tasks response");
+      setTasks(data as Task[]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load tasks");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchTasks();
+  }, [fetchTasks]);
+
+  async function handleAdd() {
     const title = newTask.trim();
     if (!title) return;
-    const nextId = tasks.length ? tasks[tasks.length - 1].id + 1 : 1;
-    setTasks([
-      {
-        id: nextId,
-        title,
-        course: "Personal",
-        due: "No due date",
-        status: "pending",
-        priority: "medium",
-      },
-      ...tasks,
-    ]);
-    setNewTask("");
+    try {
+      setSubmitting(true);
+      setError(null);
+      const res = await fetch(`${API_BASE}/tasks/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+      if (!res.ok) throw new Error(`Create failed (${res.status})`);
+      setNewTask("");
+      await fetchTasks();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to add task");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
-  function toggleTask(id: number) {
-    setTasks((prev) =>
-      prev.map((task) =>
-        task.id === id
-          ? {
-              ...task,
-              status: task.status === "pending" ? "completed" : "pending",
-            }
-          : task,
-      ),
-    );
+  async function markComplete(id: number) {
+    try {
+      setSubmitting(true);
+      setError(null);
+      const res = await fetch(`${API_BASE}/tasks/${id}/`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completed: true }),
+      });
+      if (!res.ok) throw new Error(`Update failed (${res.status})`);
+      await fetchTasks();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update task");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -114,7 +123,7 @@ export default function TasksPage() {
                   defaultValue="all"
                   value={filter}
                   onValueChange={(v) =>
-                    setFilter(v as "all" | "pending" | "completed")
+                    setFilter(v as FilterMode)
                   }
                 >
                   <TabsList>
@@ -131,33 +140,47 @@ export default function TasksPage() {
                     value={newTask}
                     onChange={(e) => setNewTask(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") handleAdd();
+                      if (e.key === "Enter") void handleAdd();
                     }}
+                    disabled={submitting}
                   />
                   <Button
                     size="icon"
                     className="shrink-0 rounded-xl"
-                    onClick={handleAdd}
+                    onClick={() => void handleAdd()}
+                    disabled={submitting}
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
 
+                {error && (
+                  <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+                    {error}
+                  </div>
+                )}
+
                 <Tabs value={filter}>
                   <TabsContent value={filter} className="mt-0 space-y-2">
-                    {filtered.length === 0 && (
+                    {loading && (
+                      <p className="text-xs text-muted-foreground">Loading tasks…</p>
+                    )}
+                    {!loading && filtered.length === 0 && (
                       <p className="text-xs text-muted-foreground">
                         No tasks in this view yet.
                       </p>
                     )}
-                    {filtered.map((task) => (
+                    {!loading &&
+                      filtered.map((task) => (
                       <button
                         key={task.id}
                         type="button"
-                        onClick={() => toggleTask(task.id)}
+                        onClick={() => {
+                          if (!task.completed) void markComplete(task.id);
+                        }}
                         className="flex w-full items-center gap-3 rounded-2xl border bg-card px-3 py-2 text-left text-sm shadow-sm transition hover:bg-accent"
                       >
-                        {task.status === "completed" ? (
+                        {task.completed ? (
                           <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                         ) : (
                           <Circle className="h-4 w-4 text-muted-foreground" />
@@ -165,7 +188,7 @@ export default function TasksPage() {
                         <div className="flex-1">
                           <div
                             className={
-                              task.status === "completed"
+                              task.completed
                                 ? "text-xs text-muted-foreground line-through"
                                 : "text-xs"
                             }
@@ -173,9 +196,13 @@ export default function TasksPage() {
                             {task.title}
                           </div>
                           <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
-                            <span>{task.course}</span>
-                            <span>•</span>
-                            <span>{task.due}</span>
+                            <span>{task.course ?? "General"}</span>
+                            {task.due ? (
+                              <>
+                                <span>•</span>
+                                <span>{task.due}</span>
+                              </>
+                            ) : null}
                           </div>
                         </div>
                         <Badge
@@ -206,13 +233,13 @@ export default function TasksPage() {
                 <div className="flex justify-between">
                   <span>Pending</span>
                   <span className="font-medium text-foreground">
-                    {tasks.filter((t) => t.status === "pending").length}
+                    {tasks.filter((t) => !t.completed).length}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Completed</span>
                   <span className="font-medium text-foreground">
-                    {tasks.filter((t) => t.status === "completed").length}
+                    {tasks.filter((t) => t.completed).length}
                   </span>
                 </div>
                 <div className="flex justify-between">
